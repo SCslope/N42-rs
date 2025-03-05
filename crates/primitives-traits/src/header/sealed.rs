@@ -20,7 +20,7 @@ pub struct SealedHeader<H = Header> {
     /// Locked Header fields.
     #[as_ref]
     #[deref]
-    header: H,
+    pub header: H,
 }
 
 impl<H> SealedHeader<H> {

@@ -1,0 +1,66 @@
+
+fn main() {
+    Cli::<EthereumChainSpecParser, RethCliMinedBlock>::parse()
+        .run(|builder, args| async move {
+            let (tx, _rx) = broadcast::channel::<BlockNumber>(16);
+
+            let handle = builder
+                .node(EthereumNode::default())
+                .extend_rpc_modules(move |ctx| {
+                    if !args.enable_minedblock {
+                        return Ok(());
+                    }
+
+                    let mined_block_api = MinedBlock::new(tx.clone());
+
+                    ctx.modules.merge_configured(mined_block_api.into_rpc())?;
+                    println!("minedblock WebSocket subscription enabled");
+
+                    // 监听区块打包事件
+                    let mut rx = tx.subscribe();
+                    tokio::spawn(async move {
+                        while let Ok(block_number) = rx.recv().await {
+                            println!("New block mined: {}", block_number);
+                        }
+                    });
+
+                    Ok(())
+                })
+                .launch()
+                .await?;
+
+            handle.wait_for_node_exit().await
+        })
+        .unwrap();
+}
+
+/// 定义 WebSocket 订阅的 RPC 接口
+#[rpc(server, namespace = "minedblock")]
+pub trait MinedBlockApi {
+    /// 订阅新区块事件，每次打包新区块后推送 blockNumber
+    #[subscription(name = "subscribeNewBlocks", item = BlockNumber)]
+    fn subscribe_new_blocks(&self);
+}
+
+/// 订阅实现
+pub struct MinedBlock {
+    sender: broadcast::Sender<BlockNumber>,
+}
+
+impl MinedBlock {
+    fn new(sender: broadcast::Sender<BlockNumber>) -> Self {
+        MinedBlock { sender }
+    }
+}
+
+impl MinedBlockApiServer for MinedBlock {
+    fn subscribe_new_blocks(&self) -> SubscriptionResult<BlockNumber> {
+        let mut rx = self.sender.subscribe();
+        let stream = async_stream::stream! {
+            while let Ok(block_number) = rx.recv().await {
+                yield block_number;
+            }
+        };
+        Ok(Box::pin(stream) as _)
+    }
+}

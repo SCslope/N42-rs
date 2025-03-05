@@ -5187,6 +5187,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "minedblock"
+version = "1.1.1"
+dependencies = [
+ "alloy-primitives",
+ "jsonrpsee",
+ "n42-engine-types",
+ "reth-revm",
+ "serde",
+]
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8945,10 +8956,11 @@ dependencies = [
 [[package]]
 name = "reth-revm"
 version = "1.1.1"
-source = "git+https://github.com/paradigmxyz/reth.git?tag=v1.1.1#15c230bac20e2b1b3532c8b0d470e815fbc0cc22"
 dependencies = [
+ "alloy-consensus",
  "alloy-eips",
  "alloy-primitives",
+ "reth-ethereum-forks",
  "reth-execution-errors",
  "reth-primitives",
  "reth-prune-types",
@@ -8956,6 +8968,7 @@ dependencies = [
  "reth-storage-errors",
  "reth-trie",
  "revm",
+ "serde",
 ]
 
 [[package]]

@@ -143,7 +143,7 @@ where
     Builder: PayloadBuilder<Pool, Client, Consensus>,
 {
     /// The configuration for how the payload will be created.
-    pub(crate) config: PayloadConfig<Builder::Attributes>,
+    pub config: PayloadConfig<Builder::Attributes>,
     /// the Consensus that prepare header and seal header
     pub(crate) consensus: Consensus,
     /// The client that can interact with the chain.
@@ -166,7 +166,7 @@ where
     ///
     /// This is used to avoid reading the same state over and over again when new attempts are
     /// triggered, because during the building process we'll repeatedly execute the transactions.
-    pub(crate) cached_reads: Option<CachedReads>,
+    pub cached_reads: Option<CachedReads>,
     /// metrics for this type
     pub(crate) metrics: PayloadBuilderMetrics,
     /// The type responsible for building payloads.

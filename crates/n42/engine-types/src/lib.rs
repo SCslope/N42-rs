@@ -23,6 +23,8 @@ mod consensus;
 
 pub use payload::N42PayloadBuilder;
 pub use payload::N42PayloadServiceBuilder;
+pub use job::N42PayloadJob;
+pub use job_generator::PayloadBuilder;
 
 
 

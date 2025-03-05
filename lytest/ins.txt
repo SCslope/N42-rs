@@ -1,0 +1,1 @@
+./target/debug/n42  node --chain n42 --dev.consensus-signer-private-key 67458b00e5e4b4888148275132f3a9de4d41ce422c678a3a80d265a0285cd2d2  --dev.block-time 8s

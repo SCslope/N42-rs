@@ -42,7 +42,11 @@ members = [
     "crates/storage/db-api/",
     "crates/storage/provider",
     "crates/storage/storage-api/",
-    "testing/testing-utils/", "crates/n42/engine-primitives", "crates/n42/consensus-client",
+    "testing/testing-utils/", 
+    "crates/n42/engine-primitives", 
+    "crates/n42/consensus-client", 
+    "crates/n42/minedblock",
+    "crates/revm",
 ]
 default-members = ["bin/n42"]
 
@@ -219,6 +223,7 @@ reth-network-api = { path = "crates/net/network-api" }
 reth-network-peers = { path = "crates/net/peers"}
 reth-testing-utils={path="testing/testing-utils"}
 reth-chain-state = { path = "crates/chain-state"}
+reth-revm={path="crates/revm"}
 
 [patch.crates-io]
 alloy-genesis = { path = "./crates/n42/alloy-genesis" }
