@@ -361,10 +361,10 @@ reth-trie-parallel = { git = "https://github.com/paradigmxyz/reth.git", tag = "v
 
 # revm
 revm = { version = "17.0.0", features = ["std"], default-features = false }
+# revm={path = "/Users/root1/Desktop/starlink/revm-49/crates/revm",features = ["std"],default-features = false}
 revm-inspectors = "0.10.0"
-revm-primitives = { version = "13.0.0", features = [
-    "std",
-], default-features = false }
+revm-primitives = { version = "13.0.0", features = ["std",], default-features = false }
+# revm-primitives={path="/Users/root1/Desktop/starlink/revm-41/crates/primitives",features = ["std"],default-features = false}
 
 # eth
 alloy-chains = "0.1.32"

@@ -1,1 +1,25 @@
-./target/debug/n42  node --chain n42 --dev.consensus-signer-private-key 67458b00e5e4b4888148275132f3a9de4d41ce422c678a3a80d265a0285cd2d2  --dev.block-time 8s
+./target/debug/n42  node --chain n42 --dev.consensus-signer-private-key 67458b00e5e4b4888148275132f3a9de4d41ce422c678a3a80d265a0285cd2d2  --dev.block-time 8s --http
+
+
+
+cd /Users/root1/Library/Caches/reth/logs/
+rm -rf 94
+cd /Users/root1/Library/Application\ Support/reth/
+rm -rf 94
+cd /Users/root1/Desktop/starlink/N42-rs/
+
+
+
+
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+        "jsonrpc": "2.0",
+        "method": "eth_getBalance",
+        "params": ["0x73E766350Bd18867FE55ACb8b96Df7B11CdACF92", "latest"],
+        "id": 1
+      }' \
+  http://127.0.0.1:8545/
+
+
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getTransactionCount","params":["0x73E766350Bd18867FE55ACb8b96Df7B11CdACF92", "latest"],"id":1}' -H "Content-Type: application/json" http://127.0.0.1:8545/

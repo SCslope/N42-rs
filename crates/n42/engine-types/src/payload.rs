@@ -211,12 +211,32 @@ where
         best_payload, ..
     } = args;
 
+    println!();
+    println!("before:");
+    if cached_reads.is_empty() {
+        println!("empty");
+    }else{
+        let account:Vec<_>=cached_reads.account_keys().collect();
+        println!("CachedReads {{accounts: {:?}}}",account);
+    }
+    println!();
+
     let chain_spec = client.chain_spec();
     let state_provider = client.state_by_block_hash(config.parent_header.hash())?;
     let state = StateProviderDatabase::new(state_provider);
     let mut db =
         State::builder().with_database(cached_reads.as_db_mut(state)).with_bundle_update().build();
     let PayloadConfig { parent_header, extra_data, attributes } = config;
+
+    println!();
+    println!("in db 1:");
+    if db.database.cached.is_empty() {
+        println!("empty");
+    }else{
+        let account:Vec<_>=db.database.cached.account_keys().collect();
+        println!("CachedReads {{accounts: {:?}}}",account);
+    }
+    println!();
 
     debug!(target: "payload_builder", id=%attributes.0.id, parent_header = ?parent_header.hash(), parent_number = parent_header.number, "building new payload");
     let mut cumulative_gas_used = 0;
@@ -310,8 +330,30 @@ where
             evm_config.tx_env(tx.as_signed(), tx.signer()),
         );
 
+        println!();
+        println!("in db 2:");
+        if db.database.cached.is_empty() {
+            println!("empty");
+        }else{
+            let account:Vec<_>=db.database.cached.account_keys().collect();
+            println!("CachedReads {{accounts: {:?}}}",account);
+        }
+        println!();
+    
         // Configure the environment for the block.
         let mut evm = evm_config.evm_with_env(&mut db, env);
+
+
+        println!();
+        println!("in evm 1:");
+        if evm.context.evm.inner.db.database.cached.is_empty() {
+            println!("empty");
+        }else{
+            let account:Vec<_>=evm.context.evm.inner.db.database.cached.account_keys().collect();
+            println!("CachedReads {{accounts: {:?}}}",account);
+        }
+        println!();
+
 
         let ResultAndState { result, state } = match evm.transact() {
             Ok(res) => res,
@@ -337,10 +379,34 @@ where
                 }
             }
         };
+
+
+        println!();
+        println!("in evm 2:");
+        if evm.context.evm.inner.db.database.cached.is_empty() {
+            println!("empty");
+        }else{
+            let account:Vec<_>=evm.context.evm.inner.db.database.cached.account_keys().collect();
+            println!("CachedReads {{accounts: {:?}}}",account);
+        }
+        println!();
+
         // drop evm so db is released.
         drop(evm);
         // commit changes
         db.commit(state);
+
+
+
+        println!();
+        println!("in db 2:");
+        if db.database.cached.is_empty() {
+            println!("empty");
+        }else{
+            let account:Vec<_>=db.database.cached.account_keys().collect();
+            println!("CachedReads {{accounts: {:?}}}",account);
+        }
+        println!();
 
         // add to the total blob gas used if the transaction successfully executed
         if let Some(blob_tx) = tx.transaction.as_eip4844() {
@@ -384,6 +450,10 @@ where
         // can skip building the block
         return Ok(BuildOutcome::Aborted { fees: total_fees, cached_reads })
     }
+
+    // println!();
+    // println!("{:#?}",cached_reads);
+    // println!();
 
     // calculate the requests and the requests root
     let requests = if chain_spec.is_prague_active_at_timestamp(attributes.0.timestamp) {
@@ -521,6 +591,17 @@ where
 
     // extend the payload with the blob sidecars from the executed txs
     payload.extend_sidecars(blob_sidecars.into_iter().map(Arc::unwrap_or_clone));
+
+
+    println!();
+    println!("after:");
+    if cached_reads.is_empty() {
+        println!("empty");
+    }else{
+        let account:Vec<_>=cached_reads.account_keys().collect();
+        println!("CachedReads {{accounts: {:?}}}",account);
+    }
+    println!();
 
     Ok(BuildOutcome::Better { payload, cached_reads })
 }

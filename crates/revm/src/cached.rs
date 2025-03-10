@@ -39,6 +39,16 @@ pub struct CachedReads {
 // === impl CachedReads ===
 
 impl CachedReads {
+    /// accounts.keys()
+    pub fn account_keys(&self) -> impl Iterator<Item = &Address> {
+        self.accounts.keys()
+    }
+    
+    /// empty?
+    pub fn is_empty(&self) -> bool {
+        self.accounts.is_empty() && self.contracts.is_empty() && self.block_hashes.is_empty()
+    }
+    
     /// Gets a [`DatabaseRef`] that will cache reads from the given database.
     pub fn as_db<DB>(&mut self, db: DB) -> CachedReadsDBRef<'_, DB> {
         self.as_db_mut(db).into_db()
