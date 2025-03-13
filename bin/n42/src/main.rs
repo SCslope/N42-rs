@@ -17,6 +17,7 @@ use reth_tracing::tracing::warn;
 use tracing::info;
 
 use n42_engine_types::{N42Node, N42NodeAddOns};
+use n42_engine_types::minedblock::{MinedblockExt,MinedblockExtApiServer};
 
 use jsonrpsee::{core::RpcResult, proc_macros::rpc, types::{error::INVALID_PARAMS_CODE, ErrorObject}};
 use alloy_primitives::Address;
@@ -164,6 +165,12 @@ fn main() {
 
                             // now we merge our extension namespace into all configured transports
                             ctx.auth_module.merge_auth_methods(ext.into_rpc())?;
+
+                            // init mined blocks rpc extension
+                            let minedblock_ext = MinedblockExt::instance();
+                            ctx.modules.merge_ws(minedblock_ext.into_rpc())?;
+                            // without auth
+                            // ctx.modules.merge_methods(ext.into_rpc())?;
 
                             println!("consensus rpc extension enabled");
 

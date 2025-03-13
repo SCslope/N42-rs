@@ -1,5 +1,5 @@
 //! A basic payload generator for n42.
-
+use crate::minedblock::MinedblockExtApiServer; 
 use alloy_consensus::constants::EMPTY_WITHDRAWALS;
 use alloy_eips::{BlockNumberOrTag};
 use alloy_primitives::{Bytes, B256, U256};
@@ -31,7 +31,7 @@ use tokio::{
     time::Sleep,
 };
 use tracing::{debug, warn};
-use crate::job::{Cancelled, N42PayloadJob, N42PayloadJobGeneratorConfig, PendingPayload};
+use crate::{job::{Cancelled, N42PayloadJob, N42PayloadJobGeneratorConfig, PendingPayload}, minedblock::MinedblockExt, unverifiedblock::UnverifiedBlock};
 
 /// The [`PayloadJobGenerator`] that creates [`BasicPayloadJob`]s.
 #[derive(Debug)]
@@ -182,8 +182,18 @@ where
             builder: self.builder.clone(),
         };
 
+        println!("BEFORE:");
+        if !job.cached_reads.clone().unwrap_or_default().is_empty(){
+            job.cached_reads.clone().unwrap_or_default().print_all();
+        }
+
         // start the first job right away
         job.spawn_build_job();
+
+        println!("AFTER:");
+        if !job.cached_reads.clone().unwrap_or_default().is_empty(){
+            job.cached_reads.clone().unwrap_or_default().print_all();
+        }
 
         Ok(job)
     }
@@ -204,6 +214,14 @@ where
             }
         }
 
+        println!("on_new_state:");
+        if !cached.clone().is_empty(){
+            cached.clone().print_all();
+        }
+        let minedblock_ext = MinedblockExt::instance();
+        let unvalidated_block = UnverifiedBlock::new(0,cached.clone());
+        minedblock_ext.send_block(unvalidated_block);
+        
         self.pre_cached = Some(PrecachedState { block: committed.tip().hash(), cached });
     }
 }
