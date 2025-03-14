@@ -8456,6 +8456,7 @@ version = "1.1.1"
 dependencies = [
  "alloy-primitives",
  "alloy-rpc-types",
+ "alloy-signer-local",
  "aquamarine",
  "consensus-client",
  "eyre",

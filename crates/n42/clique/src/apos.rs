@@ -14,7 +14,7 @@ use rand::prelude::SliceRandom;
 use reth_chainspec::{EthChainSpec, EthereumHardforks};
 use reth_primitives::{SealedBlock, SealedHeader, BlockWithSenders, public_key_to_address};
 use reth_primitives_traits::{Header, header::clique_utils::{recover_address, SIGNATURE_LENGTH, seal_hash}};
-use reth_provider::{HeaderProvider, SnapshotProvider};
+use reth_provider::{HeaderProvider, SnapshotProvider, TdProvider};
 use tracing::{info, warn, debug, error};
 use n42_primitives::{APosConfig, Snapshot};
 
@@ -22,7 +22,7 @@ use alloy_signer_local::{LocalSigner, PrivateKeySigner};
 use k256::ecdsa::SigningKey;
 use alloy_signer::SignerSync;
 use reth_consensus::{PostExecutionInput, Consensus, ConsensusError, HeaderConsensusError};
-use reth_storage_api::SnapshotProviderWriter;
+use reth_storage_api::{SnapshotProviderWriter, TdProviderWriter};
 use std::str::FromStr;
 
 //
@@ -106,7 +106,7 @@ impl Error for AposError {}
 // Ethereum testnet following the Ropsten attacks.
 pub struct APos<Provider, ChainSpec>
 where
-    Provider: HeaderProvider + SnapshotProvider + SnapshotProviderWriter + Clone + Unpin + 'static,
+    Provider: HeaderProvider + TdProvider + TdProviderWriter +SnapshotProvider + SnapshotProviderWriter + Clone + Unpin + 'static,
     ChainSpec: EthChainSpec + EthereumHardforks
 {
     config: APosConfig,          // Consensus engine configuration parameters
@@ -126,7 +126,7 @@ where
 // signers set to the ones provided by the user.
 impl<Provider, ChainSpec> APos<Provider, ChainSpec>
 where
-    Provider: HeaderProvider + SnapshotProvider + SnapshotProviderWriter + Clone + Unpin + 'static,
+    Provider: HeaderProvider + TdProvider + TdProviderWriter +SnapshotProvider + SnapshotProviderWriter + Clone + Unpin + 'static,
     ChainSpec: EthChainSpec + EthereumHardforks
 {
     pub fn new(
@@ -320,6 +320,21 @@ where
 
     // APIs implements consensus.Engine, returning the user facing RPC API to allow
     // controlling the signer voting.
+
+    fn save_total_difficulty(&self, header: &Header) {
+        let total_difficulty = if header.number == 1 {
+            header.difficulty
+        } else {
+            if let Ok(Some(parent_td)) = self.provider.load_td(&header.parent_hash) {
+                parent_td + header.difficulty
+            } else {
+                warn!(target: "consensus::apos", "td not found for hash {:?}", header.parent_hash);
+                U256::from(0)
+            }
+        };
+        self.provider.save_td(&header.hash_slow(), total_difficulty).unwrap();
+        info!(target: "consensus::apos", "saved total_difficulty {}", total_difficulty);
+    }
 }
 
 
@@ -339,7 +354,7 @@ fn calc_difficulty(snap: &Snapshot, signer: &Address) -> U256 {
 impl<Provider, ChainSpec> Debug for APos<Provider, ChainSpec>
 where
     ChainSpec: EthChainSpec + EthereumHardforks,
-    Provider: 'static + Clone + HeaderProvider + SnapshotProvider + SnapshotProviderWriter + Unpin,
+    Provider: 'static + Clone + HeaderProvider + TdProvider + TdProviderWriter + SnapshotProvider + SnapshotProviderWriter + Unpin,
 {
     fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         todo!()
@@ -348,7 +363,7 @@ where
 
 impl<Provider, ChainSpec> Consensus for APos<Provider, ChainSpec>
 where
-    Provider: HeaderProvider + SnapshotProvider + SnapshotProviderWriter + Clone + Unpin + 'static,
+    Provider: HeaderProvider + TdProvider + TdProviderWriter +SnapshotProvider + SnapshotProviderWriter + Clone + Unpin + 'static,
     ChainSpec: EthChainSpec + EthereumHardforks
 {
 
@@ -421,7 +436,7 @@ where
 
     fn validate_header_against_parent(
         &self,header: &SealedHeader,
-        _parent: &SealedHeader,
+        parent: &SealedHeader,
         ) -> Result<(),ConsensusError>  {
         info!(target: "consensus::apos", ?header, "in validate_header_against_parent");
         //self.validate_header(header)?;
@@ -433,7 +448,7 @@ where
         }
 
         let snap = self.snapshot(number - 1, header.parent_hash,
-None)?;
+Some(vec![parent.header().clone()]))?;
         if number % self.config.epoch == 0 {
             let signers: Vec<u8> = snap.signers
                 .iter()
@@ -448,6 +463,8 @@ None)?;
         self.verify_seal(&snap, header, None).map_err(|e| {ConsensusError::AposErrorDetail {detail: e.to_string()}})?;
         let mut recent_headers = self.recent_headers.write().unwrap();
         recent_headers.insert(header_hash, header.clone());
+
+        self.save_total_difficulty(header);
 
         Ok(())
     }
@@ -586,10 +603,10 @@ None)?;
             )
             .duration_since(SystemTime::now())
             .unwrap_or(Duration::from_secs(0));
-
+        let mut delay_with_wiggle = delay;
         if header.difficulty == DIFF_NO_TURN {
             let wiggle = Duration::from_millis((snap.signers.len() as u64 / 2 + 1) * WIGGLE_TIME.as_millis() as u64);
-            let delay_with_wiggle = delay + Duration::from_millis(rand::random::<u64>() % wiggle.as_millis() as u64);
+            delay_with_wiggle = delay + Duration::from_millis(rand::random::<u64>() % wiggle.as_millis() as u64);
 
             info!(target: "consensus::apos",
                 "wiggle {:?}, time {:?}, number {}",
@@ -617,6 +634,9 @@ None)?;
         info!(target: "consensus::apos", "Waiting for slot to sign and propagate, delay: {:?}", delay);
         //
         // thread::sleep(delay);
+        //tokio::time::sleep(delay_with_wiggle);
+
+        self.save_total_difficulty(header);
 
         Ok(())
     }
@@ -683,6 +703,9 @@ None)?;
                         let end = start + Address::len_bytes();
                         signers.push(Address::from_slice(&checkpoint.extra_data[start..end]));
                     }
+                    info!(target: "consensus::apos", ?signers,
+                        "genesis signers:"
+                    );
                    
                     let s = Snapshot::new_snapshot(self.config.clone(), number, hash, signers);
                     // todo
@@ -699,15 +722,13 @@ None)?;
             }
 
             // No snapshot for this header, gather the header and move backward
-            let header = if let Some(ref mut parent_vec) = parents {
-                if let Some(header) = parent_vec.pop() {
-                    if header.hash_slow() != hash || header.number != number {
-                        return Err(ConsensusError::UnknownBlock);
-                    }
-                    header
-                } else {
+            let header = if parents.is_some() && !parents.as_ref().unwrap().is_empty() {
+                let header = parents.as_mut().unwrap().pop().unwrap();
+                if header.hash_slow() != hash || header.number != number {
+                    error!(target: "consensus::apos", "parent hash check failed: {:?}, {:?}, {:?}, {:?}", header.hash_slow(), hash, header.number, number);
                     return Err(ConsensusError::UnknownBlock);
                 }
+                header
             } else {
                 let header_opt = self.provider.header_by_hash_or_number(hash.into()).map_err(|_| ConsensusError::UnknownBlock)?;
                 if let Some(header) = header_opt {
@@ -782,5 +803,19 @@ None)?;
         info!(target: "consensus::apos", "proposals()");
         let mut proposals_guard = self.proposals.read().unwrap();
         Ok(proposals_guard.clone())
+    }
+
+    fn total_difficulty(
+        &self,
+        hash: B256,
+    ) -> U256 {
+        let total_difficulty = if let Ok(Some(td)) = self.provider.load_td(&hash) {
+            td
+        } else {
+            warn!(target: "consensus::apos", "td not found for hash {:?}", hash);
+            U256::from(0)
+        };
+        info!(target: "consensus::apos", ?hash, ?total_difficulty, "get total_difficulty");
+        total_difficulty
     }
 }
